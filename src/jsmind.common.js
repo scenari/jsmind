@@ -1,12 +1,12 @@
 /**
  * @license BSD
- * @copyright 2014-2023 hizzgdev@163.com
+ * @copyright 2014-2025 hizzgdev@163.com
  *
  * Project Home:
  *   https://github.com/hizzgdev/jsmind/
  */
 
-export const __version__ = '0.8.5';
+export const __version__ = '0.8.7';
 export const __author__ = 'hizzgdev@163.com';
 
 if (typeof String.prototype.startsWith != 'function') {

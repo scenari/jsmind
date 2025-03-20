@@ -1,6 +1,6 @@
 /**
  * @license BSD
- * @copyright 2014-2023 hizzgdev@163.com
+ * @copyright 2014-2025 hizzgdev@163.com
  *
  * Project Home:
  *   https://github.com/hizzgdev/jsmind/
@@ -172,7 +172,11 @@ export default class jsMind {
     // Use [Ctrl] + Mousewheel, to zoom in/out.
     mousewheel_handle(e) {
         // Test if mousewheel option is enabled and Ctrl key is pressed.
-        if (!this.options.default_event_handle['enable_mousewheel_handle'] || (this.options.view.zoom.ctrlKey && !e.ctrlKey) || (this.options.view.zoom.shiftKey && !e.shiftKey) || (this.options.view.zoom.altKey && !e.altKey) || (this.options.view.zoom.metaKey && !e.metaKey)) {
+        var kc = (e.metaKey << 13) + (e.ctrlKey << 12) + (e.altKey << 11) + (e.shiftKey << 10);
+        if (
+            !this.options.default_event_handle['enable_mousewheel_handle'] ||
+            this.options.view.zoom.mask_key !== kc
+        ) {
             return;
         }
         var evt = e || event;
