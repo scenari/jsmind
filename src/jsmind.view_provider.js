@@ -216,9 +216,25 @@ export class ViewProvider {
             var d_e = $.c('jmexpander');
             $.t(d_e, '-');
             d_e.setAttribute('nodeid', node.id);
+            if (this.opts.aria_attributes) d_e.setAttribute('aria-hidden', 'true');
             d_e.style.visibility = 'hidden';
             parent_node.appendChild(d_e);
             view_data.expander = d_e;
+        }
+        if (this.opts.aria_attributes) {
+            var a_o = [];
+            node.children.forEach(child => {
+                a_o.push(this.opts.container + child.id);
+            });
+            var a_l = 0;
+            var n_p = node.parent;
+            while (n_p) {
+                a_l++;
+                n_p = n_p.parent;
+            }
+            if (a_o.length > 0) d.setAttribute('aria-owns', a_o.join(' '));
+            d.setAttribute('aria-level', a_l);
+            d.setAttribute('id', this.opts.container + node.id);
         }
         if (!!node.topic) {
             this.render_node(d, node);

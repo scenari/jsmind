@@ -35,6 +35,7 @@ const default_options = {
         },
         custom_node_render: null,
         expander_style: 'char', // [char | number]
+        aria_attributes: false,
     },
     layout: {
         hspace: 30,
