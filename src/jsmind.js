@@ -19,6 +19,14 @@ import { format } from './jsmind.format.js';
 import { $ } from './jsmind.dom.js';
 import { util as _util } from './jsmind.util.js';
 
+/**
+ * Event callback payload
+ * @typedef {{ evt?: string, data?: unknown[], node?: string }} EventData
+ */
+
+/**
+ * jsMind runtime: orchestrates data/layout/view/shortcut and exposes public API.
+ */
 export default class jsMind {
     static mind = Mind;
     static node = Node;
@@ -29,6 +37,10 @@ export default class jsMind {
     static register_plugin = _register_plugin;
     static util = _util;
 
+    /**
+     * Create a jsMind instance.
+     * @param {import('./jsmind.option.js').JsMindRuntimeOptions} options
+     */
     constructor(options) {
         jsMind.current = this;
         this.options = merge_option(options);
@@ -36,10 +48,12 @@ export default class jsMind {
         this.version = __version__;
         this.initialized = false;
         this.mind = null;
+        /** @type {Array<(type: number, data: EventData) => void>} */
         this.event_handles = [];
         this.init();
     }
 
+    /** Initialize sub-systems and plugins. */
     init() {
         if (!!this.initialized) {
             return;
@@ -86,34 +100,52 @@ export default class jsMind {
 
         apply_plugins(this, this.options.plugin);
     }
+    /** @returns {boolean} whether current mind map is editable */
     get_editable() {
         return this.options.editable;
     }
+    /** enable editing */
     enable_edit() {
         this.options.editable = true;
     }
+    /** disable editing */
     disable_edit() {
         this.options.editable = false;
     }
+    /** @returns {boolean} whether view is draggable */
     get_view_draggable() {
         return this.options.view.draggable;
     }
+    /** enable view dragging */
     enable_view_draggable() {
         this.options.view.draggable = true;
         this.view.setup_canvas_draggable(true);
     }
+    /** disable view dragging */
     disable_view_draggable() {
         this.options.view.draggable = false;
         this.view.setup_canvas_draggable(false);
     }
     // options are 'mousedown', 'click', 'dblclick', 'mousewheel'
+    /**
+     * Enable default event handle.
+     * @param {'mousedown'|'click'|'dblclick'|'mousewheel'} event_handle
+     */
     enable_event_handle(event_handle) {
         this.options.default_event_handle['enable_' + event_handle + '_handle'] = true;
     }
     // options are 'mousedown', 'click', 'dblclick', 'mousewheel'
+    /**
+     * Disable default event handle.
+     * @param {'mousedown'|'click'|'dblclick'|'mousewheel'} event_handle
+     */
     disable_event_handle(event_handle) {
         this.options.default_event_handle['enable_' + event_handle + '_handle'] = false;
     }
+    /**
+     * Set theme name.
+     * @param {string|null=} theme
+     */
     set_theme(theme) {
         var theme_old = this.options.theme;
         this.options.theme = !!theme ? theme : null;
@@ -122,12 +154,14 @@ export default class jsMind {
             this.view.reset_custom_style();
         }
     }
+    /** bind internal DOM events */
     _event_bind() {
         this.view.add_event(this, 'mousedown', this.mousedown_handle);
         this.view.add_event(this, 'click', this.click_handle);
         this.view.add_event(this, 'dblclick', this.dblclick_handle);
         this.view.add_event(this, 'wheel', this.mousewheel_handle, true);
     }
+    /** @param {MouseEvent} e */
     mousedown_handle(e) {
         if (!this.options.default_event_handle['enable_mousedown_handle']) {
             return;
@@ -142,6 +176,7 @@ export default class jsMind {
             this.select_clear();
         }
     }
+    /** @param {MouseEvent} e */
     click_handle(e) {
         if (!this.options.default_event_handle['enable_click_handle']) {
             return;
@@ -155,6 +190,7 @@ export default class jsMind {
             }
         }
     }
+    /** @param {MouseEvent} e */
     dblclick_handle(e) {
         if (!this.options.default_event_handle['enable_dblclick_handle']) {
             return;
@@ -171,6 +207,7 @@ export default class jsMind {
         }
     }
     // Use [Ctrl] + Mousewheel, to zoom in/out.
+    /** @param {WheelEvent} e */
     mousewheel_handle(e) {
         // Test if mousewheel option is enabled and Ctrl key is pressed.
         var kc = (e.metaKey << 13) + (e.ctrlKey << 12) + (e.altKey << 11) + (e.shiftKey << 10);
@@ -190,6 +227,11 @@ export default class jsMind {
             this.view.zoom_out(evt);
         }
     }
+    /**
+     * Begin editing a node.
+     * @param {string | import('./jsmind.node.js').Node} node
+     * @returns {boolean|void}
+     */
     begin_edit(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -207,9 +249,15 @@ export default class jsMind {
             return;
         }
     }
+    /** End editing */
     end_edit() {
         this.view.edit_node_end();
     }
+    /**
+     * Toggle a node's expanded state.
+     * @param {string | import('./jsmind.node.js').Node} node
+     * @returns {void}
+     */
     toggle_node(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -217,7 +265,8 @@ export default class jsMind {
                 logger.error('the node[id=' + node + '] can not be found.');
                 return;
             } else {
-                return this.toggle_node(the_node);
+                this.toggle_node(the_node);
+                return;
             }
         }
         if (node.isroot) {
@@ -228,6 +277,11 @@ export default class jsMind {
         this.view.relayout();
         this.view.restore_location(node);
     }
+    /**
+     * Expand a node.
+     * @param {string | import('./jsmind.node.js').Node} node
+     * @returns {void}
+     */
     expand_node(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -235,7 +289,8 @@ export default class jsMind {
                 logger.error('the node[id=' + node + '] can not be found.');
                 return;
             } else {
-                return this.expand_node(the_node);
+                this.expand_node(the_node);
+                return;
             }
         }
         if (node.isroot) {
@@ -246,6 +301,11 @@ export default class jsMind {
         this.view.relayout();
         this.view.restore_location(node);
     }
+    /**
+     * Collapse a node.
+     * @param {string | import('./jsmind.node.js').Node} node
+     * @returns {void}
+     */
     collapse_node(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -253,7 +313,8 @@ export default class jsMind {
                 logger.error('the node[id=' + node + '] can not be found.');
                 return;
             } else {
-                return this.collapse_node(the_node);
+                this.collapse_node(the_node);
+                return;
             }
         }
         if (node.isroot) {
@@ -264,23 +325,35 @@ export default class jsMind {
         this.view.relayout();
         this.view.restore_location(node);
     }
+    /** Expand all nodes */
     expand_all() {
         this.layout.expand_all();
         this.view.relayout();
     }
+    /** Collapse all nodes */
     collapse_all() {
         this.layout.collapse_all();
         this.view.relayout();
     }
+    /**
+     * Expand nodes up to a specified depth level.
+     * @param {number} depth
+     */
     expand_to_depth(depth) {
         this.layout.expand_to_depth(depth);
         this.view.relayout();
     }
+    /** reset view/layout/data */
     _reset() {
         this.view.reset();
         this.layout.reset();
         this.data.reset();
     }
+    /**
+     * Internal show flow.
+     * @param {object | null} mind
+     * @param {boolean=} skip_centering
+     */
     _show(mind, skip_centering) {
         var m = mind || format.node_array.example;
         this.mind = this.data.load(m);
@@ -302,10 +375,16 @@ export default class jsMind {
 
         this.invoke_event_handle(EventType.show, { data: [mind] });
     }
+    /**
+     * Show a mind (or example) on the canvas.
+     * @param {object | null} mind
+     * @param {boolean=} skip_centering
+     */
     show(mind, skip_centering) {
         this._reset();
         this._show(mind, skip_centering);
     }
+    /** @returns {{name:string,author:string,version:string}} */
     get_meta() {
         return {
             name: this.mind.name,
@@ -313,19 +392,38 @@ export default class jsMind {
             version: this.mind.version,
         };
     }
+    /**
+     * Serialize current mind to given format.
+     * @param {'node_tree'|'node_array'|'freemind'|'text'} [data_format]
+     * @returns {object}
+     */
     get_data(data_format) {
         var df = data_format || 'node_tree';
         return this.data.get_data(df);
     }
+    /** @returns {import('./jsmind.node.js').Node} */
     get_root() {
         return this.mind.root;
     }
+    /**
+     * @param {string | import('./jsmind.node.js').Node} node
+     * @returns {import('./jsmind.node.js').Node}
+     */
     get_node(node) {
         if (Node.is_node(node)) {
             return node;
         }
         return this.mind.get_node(node);
     }
+    /**
+     * Add a new node to the mind map.
+     * @param {string | import('./jsmind.node.js').Node} parent_node
+     * @param {string} node_id
+     * @param {string} topic
+     * @param {Record<string, any>=} data
+     * @param {('left'|'center'|'right'|'-1'|'0'|'1'|number)=} direction - Direction for node placement. Supports string values ('left', 'center', 'right'), numeric strings ('-1', '0', '1'), and numbers (-1, 0, 1)
+     * @returns {import('./jsmind.node.js').Node|null}
+     */
     add_node(parent_node, node_id, topic, data, direction) {
         if (this.get_editable()) {
             var the_parent_node = this.get_node(parent_node);
@@ -352,6 +450,15 @@ export default class jsMind {
             return null;
         }
     }
+    /**
+     * Insert a node before target node.
+     * @param {string | import('./jsmind.node.js').Node} node_before
+     * @param {string} node_id
+     * @param {string} topic
+     * @param {Record<string, any>=} data
+     * @param {('left'|'center'|'right'|'-1'|'0'|'1'|number)=} direction - Direction for node placement. Supports string values ('left', 'center', 'right'), numeric strings ('-1', '0', '1'), and numbers (-1, 0, 1)
+     * @returns {import('./jsmind.node.js').Node|null}
+     */
     insert_node_before(node_before, node_id, topic, data, direction) {
         if (this.get_editable()) {
             var the_node_before = this.get_node(node_before);
@@ -376,6 +483,15 @@ export default class jsMind {
             return null;
         }
     }
+    /**
+     * Insert a node after target node.
+     * @param {string | import('./jsmind.node.js').Node} node_after
+     * @param {string} node_id
+     * @param {string} topic
+     * @param {Record<string, any>=} data
+     * @param {('left'|'center'|'right'|'-1'|'0'|'1'|number)=} direction - Direction for node placement. Supports string values ('left', 'center', 'right'), numeric strings ('-1', '0', '1'), and numbers (-1, 0, 1)
+     * @returns {import('./jsmind.node.js').Node|null}
+     */
     insert_node_after(node_after, node_id, topic, data, direction) {
         if (this.get_editable()) {
             var the_node_after = this.get_node(node_after);
@@ -400,6 +516,11 @@ export default class jsMind {
             return null;
         }
     }
+    /**
+     * Remove a node.
+     * @param {string | import('./jsmind.node.js').Node} node
+     * @returns {boolean}
+     */
     remove_node(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -435,6 +556,11 @@ export default class jsMind {
             return false;
         }
     }
+    /**
+     * Update the topic (text content) of a node.
+     * @param {string} node_id
+     * @param {string} topic
+     */
     update_node(node_id, topic) {
         if (this.get_editable()) {
             if (_util.text.is_empty(topic)) {
@@ -463,6 +589,13 @@ export default class jsMind {
             return;
         }
     }
+    /**
+     * Move a node and optionally change direction.
+     * @param {string} node_id
+     * @param {string=} before_id - The ID of the node before which to place the moved node. Special values: "_first_", "_last_"
+     * @param {string=} parent_id
+     * @param {('left'|'center'|'right'|'-1'|'0'|'1'|number)=} direction - Direction for node placement. Supports string values ('left', 'center', 'right'), numeric strings ('-1', '0', '1'), and numbers (-1, 0, 1). Only effective for second-level nodes (children of root). If not provided, direction will be determined automatically.
+     */
     move_node(node_id, before_id, parent_id, direction) {
         if (this.get_editable()) {
             var node = this.get_node(node_id);
@@ -482,6 +615,10 @@ export default class jsMind {
             return;
         }
     }
+    /**
+     * @param {string | import('./jsmind.node.js').Node} node
+     * @returns {void}
+     */
     select_node(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -489,7 +626,8 @@ export default class jsMind {
                 logger.error('the node[id=' + node + '] can not be found.');
                 return;
             } else {
-                return this.select_node(the_node);
+                this.select_node(the_node);
+                return;
             }
         }
         if (!this.layout.is_visible(node)) {
@@ -499,6 +637,7 @@ export default class jsMind {
         this.view.select_node(node);
         this.invoke_event_handle(EventType.select, { evt: 'select_node', data: [], node: node.id });
     }
+    /** @returns {import('./jsmind.node.js').Node|null} */
     get_selected_node() {
         if (!!this.mind) {
             return this.mind.selected;
@@ -506,15 +645,21 @@ export default class jsMind {
             return null;
         }
     }
+    /** clear selection */
     select_clear() {
         if (!!this.mind) {
             this.mind.selected = null;
             this.view.select_clear();
         }
     }
+    /** @param {string | import('./jsmind.node.js').Node} node */
     is_node_visible(node) {
         return this.layout.is_visible(node);
     }
+    /**
+     * Scroll the mind map to center the specified node.
+     * @param {string | import('./jsmind.node.js').Node} node
+     */
     scroll_node_to_center(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -527,6 +672,12 @@ export default class jsMind {
         }
         this.view.center_node(node);
     }
+    /**
+     * Find the previous sibling node of the given node.
+     *
+     * @param {string | import('./jsmind.node.js').Node} node - Node id or Node instance
+     * @returns {import('./jsmind.node.js').Node | null}
+     */
     find_node_before(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -559,6 +710,11 @@ export default class jsMind {
         }
         return n;
     }
+    /**
+     * Find the next sibling node of the given node.
+     * @param {string | import('./jsmind.node.js').Node} node
+     * @returns {import('./jsmind.node.js').Node | null}
+     */
     find_node_after(node) {
         if (!Node.is_node(node)) {
             var the_node = this.get_node(node);
@@ -594,6 +750,13 @@ export default class jsMind {
         }
         return n;
     }
+    /**
+     * Set background and foreground colors for a node.
+     * @param {string} node_id
+     * @param {string=} bg_color
+     * @param {string=} fg_color
+     * @returns {void}
+     */
     set_node_color(node_id, bg_color, fg_color) {
         if (this.get_editable()) {
             var node = this.mind.get_node(node_id);
@@ -611,6 +774,14 @@ export default class jsMind {
             return null;
         }
     }
+    /**
+     * Set font style for a node.
+     * @param {string} node_id
+     * @param {number=} size
+     * @param {string=} weight
+     * @param {string=} style
+     * @returns {void}
+     */
     set_node_font_style(node_id, size, weight, style) {
         if (this.get_editable()) {
             var node = this.mind.get_node(node_id);
@@ -634,6 +805,15 @@ export default class jsMind {
             return null;
         }
     }
+    /**
+     * Set background image for a node.
+     * @param {string} node_id
+     * @param {string=} image
+     * @param {number=} width
+     * @param {number=} height
+     * @param {number=} rotation
+     * @returns {void}
+     */
     set_node_background_image(node_id, image, width, height, rotation) {
         if (this.get_editable()) {
             var node = this.mind.get_node(node_id);
@@ -660,6 +840,11 @@ export default class jsMind {
             return null;
         }
     }
+    /**
+     * @param {string} node_id
+     * @param {number} rotation
+     * @returns {void}
+     */
     set_node_background_rotation(node_id, rotation) {
         if (this.get_editable()) {
             var node = this.mind.get_node(node_id);
@@ -681,24 +866,29 @@ export default class jsMind {
             return null;
         }
     }
+    /** trigger view resize */
     resize() {
         this.view.resize();
     }
     // callback(type ,data)
+    /** @param {(type:number, data: EventData)=>void} callback */
     add_event_listener(callback) {
         if (typeof callback === 'function') {
             this.event_handles.push(callback);
         }
     }
+    /** clear event listeners */
     clear_event_listener() {
         this.event_handles = [];
     }
+    /** @param {number} type @param {EventData} data */
     invoke_event_handle(type, data) {
         var j = this;
         $.w.setTimeout(function () {
             j._invoke_event_handle(type, data);
         }, 0);
     }
+    /** @param {number} type @param {EventData} data */
     _invoke_event_handle(type, data) {
         var l = this.event_handles.length;
         for (var i = 0; i < l; i++) {
@@ -706,6 +896,12 @@ export default class jsMind {
         }
     }
 
+    /**
+     * Deprecated: static show constructor helper.
+     * @param {import('./jsmind.option.js').JsMindRuntimeOptions} options
+     * @param {object | null} mind
+     * @returns {jsMind}
+     */
     static show(options, mind) {
         logger.warn(
             '`jsMind.show(options, mind)` is deprecated, please use `jm = new jsMind(options); jm.show(mind);` instead'

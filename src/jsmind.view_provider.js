@@ -11,6 +11,26 @@ import { init_graph } from './jsmind.graph.js';
 import { util } from './jsmind.util.js';
 
 export class ViewProvider {
+    /**
+     * View layer: DOM nodes, editor, graph and zoom.
+     * @param {import('./jsmind.js').default} jm - jsMind instance
+     * @param {{
+     *   engine: 'canvas'|'svg',
+     *   enable_device_pixel_ratio: boolean,
+     *   hmargin: number,
+     *   vmargin: number,
+     *   line_width: number,
+     *   line_color: string,
+     *   line_style: 'curved'|'straight',
+     *   custom_line_render?: Function,
+     *   draggable: boolean,
+     *   hide_scrollbars_when_draggable: boolean,
+     *   node_overflow: 'hidden'|'wrap',
+     *   zoom: {min:number, max:number, step:number, mask_key:number},
+     *   custom_node_render?: Function,
+     *   expander_style: 'char'|'number'
+     * }} options - View configuration options
+     */
     constructor(jm, options) {
         this.opts = options;
         this.jm = jm;
@@ -35,11 +55,14 @@ export class ViewProvider {
             : 1;
         this._initialized = false;
     }
+    /** Initialize DOM structure, graph and editor. */
     init() {
         logger.debug(this.opts);
         logger.debug('view.init');
 
-        this.container = $.i(this.opts.container) ? this.opts.container : $.g(this.opts.container);
+        this.container = $.i(this.opts.container)
+            ? /** @type {HTMLElement} */ (this.opts.container)
+            : /** @type {HTMLElement} */ ($.g(this.opts.container));
         if (!this.container) {
             logger.error('the options.view.container was not be found in dom');
             return;
@@ -81,6 +104,13 @@ export class ViewProvider {
         }
     }
 
+    /**
+     * Add a delegated event handler.
+     * @param {import('./jsmind.js').default} obj
+     * @param {string} event_name
+     * @param {(e:Event)=>void} event_handle
+     * @param {boolean=} capture_by_panel
+     */
     add_event(obj, event_name, event_handle, capture_by_panel) {
         let target = !!capture_by_panel ? this.e_panel : this.e_nodes;
         $.on(target, event_name, function (e) {
@@ -88,6 +118,10 @@ export class ViewProvider {
             event_handle.call(obj, evt);
         });
     }
+    /**
+     * @param {HTMLElement|null} element
+     * @returns {string|null}
+     */
     get_binded_nodeid(element) {
         if (element == null) {
             return null;
@@ -101,6 +135,10 @@ export class ViewProvider {
             return this.get_binded_nodeid(element.parentElement);
         }
     }
+    /**
+     * @param {HTMLElement|null} element
+     * @returns {boolean}
+     */
     is_node(element) {
         if (element == null) {
             return false;
@@ -114,6 +152,10 @@ export class ViewProvider {
             return this.is_node(element.parentElement);
         }
     }
+    /**
+     * @param {HTMLElement} element
+     * @returns {boolean}
+     */
     is_expander(element) {
         return element.tagName.toLowerCase() == 'jmexpander';
     }
@@ -132,18 +174,21 @@ export class ViewProvider {
             this.e_nodes.className = '';
         }
     }
+    /** Reset custom styles for all nodes. */
     reset_custom_style() {
         var nodes = this.jm.mind.nodes;
         for (var nodeid in nodes) {
             this.reset_node_custom_style(nodes[nodeid]);
         }
     }
+    /** Load and initialize the view. */
     load() {
         logger.debug('view.load');
         this.setup_canvas_draggable(this.opts.draggable);
         this.init_nodes();
         this._initialized = true;
     }
+    /** Calculate and set the expanded canvas size. */
     expand_size() {
         var min_size = this.layout.get_min_size();
         var min_width = min_size.w + this.opts.hmargin * 2;
@@ -159,11 +204,16 @@ export class ViewProvider {
         this.size.w = client_w;
         this.size.h = client_h;
     }
+    /**
+     * Initialize size data for a node.
+     * @param {import('./jsmind.node.js').Node} node - Target node
+     */
     init_nodes_size(node) {
         var view_data = node._data.view;
         view_data.width = view_data.element.clientWidth;
         view_data.height = view_data.element.clientHeight;
     }
+    /** Initialize DOM elements for all nodes. */
     init_nodes() {
         var nodes = this.jm.mind.nodes;
         var doc_frag = $.d.createDocumentFragment();
@@ -178,12 +228,20 @@ export class ViewProvider {
             }
         });
     }
+    /**
+     * Add a new node to the view.
+     * @param {import('./jsmind.node.js').Node} node - Node to add
+     */
     add_node(node) {
         this.create_node_element(node, this.e_nodes);
         this.run_in_c11y_mode_if_needed(() => {
             this.init_nodes_size(node);
         });
     }
+    /**
+     * Run function in compatibility mode if container is not visible.
+     * @param {Function} func - Function to execute
+     */
     run_in_c11y_mode_if_needed(func) {
         if (!!this.container.offsetParent) {
             func();
@@ -200,6 +258,11 @@ export class ViewProvider {
         this.e_panel.style.position = null;
         this.e_panel.style.top = null;
     }
+    /**
+     * Create a DOM element for a node and append to parent container.
+     * @param {import('./jsmind.node.js').Node} node
+     * @param {HTMLElement} parent_node
+     */
     create_node_element(node, parent_node) {
         var view_data = null;
         if ('view' in node._data) {
@@ -246,6 +309,10 @@ export class ViewProvider {
         parent_node.appendChild(d);
         view_data.element = d;
     }
+    /**
+     * Remove a node from the view.
+     * @param {import('./jsmind.node.js').Node} node - Node to remove
+     */
     remove_node(node) {
         if (this.selected_node != null && this.selected_node.id == node.id) {
             this.selected_node = null;
@@ -268,6 +335,10 @@ export class ViewProvider {
             node._data.view.expander = null;
         }
     }
+    /**
+     * Update a node's display.
+     * @param {import('./jsmind.node.js').Node} node - Node to update
+     */
     update_node(node) {
         var view_data = node._data.view;
         var element = view_data.element;
@@ -285,6 +356,10 @@ export class ViewProvider {
             element.style = origin_style;
         }
     }
+    /**
+     * Select a node visually.
+     * @param {import('./jsmind.node.js').Node|null} node - Node to select
+     */
     select_node(node) {
         if (!!this.selected_node) {
             var element = this.selected_node._data.view.element;
@@ -297,15 +372,28 @@ export class ViewProvider {
             this.clear_selected_node_custom_style(node);
         }
     }
+    /** Clear node selection. */
     select_clear() {
         this.select_node(null);
     }
+    /**
+     * Get currently editing node.
+     * @returns {import('./jsmind.node.js').Node|null} Currently editing node
+     */
     get_editing_node() {
         return this.editing_node;
     }
+    /**
+     * Check if any node is being edited.
+     * @returns {boolean} True if editing
+     */
     is_editing() {
         return !!this.editing_node;
     }
+    /**
+     * Begin editing a node.
+     * @param {import('./jsmind.node.js').Node} node - Node to edit
+     */
     edit_node_begin(node) {
         if (!node.topic) {
             logger.warn("don't edit image nodes");
@@ -331,6 +419,7 @@ export class ViewProvider {
         this.e_editor.focus();
         this.e_editor.select();
     }
+    /** End editing current node. */
     edit_node_end() {
         if (this.editing_node != null) {
             var node = this.editing_node;
@@ -348,12 +437,14 @@ export class ViewProvider {
         }
         this.e_panel.focus();
     }
+    /** @returns {{x:number,y:number}} */
     get_view_offset() {
         var bounds = this.layout.bounds;
         var _x = (this.size.w - bounds.e - bounds.w) / 2;
         var _y = this.size.h / 2;
         return { x: _x, y: _y };
     }
+    /** Resize the view to fit container. */
     resize() {
         this.graph.set_size(1, 1);
         this.e_nodes.style.width = '1px';
@@ -362,6 +453,10 @@ export class ViewProvider {
         this.expand_size();
         this._show();
     }
+    /**
+     * Internal show implementation.
+     * @private
+     */
     _show() {
         this.graph.set_size(this.size.w, this.size.h);
         this.e_nodes.style.width = this.size.w + 'px';
@@ -371,12 +466,27 @@ export class ViewProvider {
         //this.layout.cache_valid = true;
         this.jm.invoke_event_handle(EventType.resize, { data: [] });
     }
+    /**
+     * Zoom in the view.
+     * @param {MouseEvent=} e - Mouse event for zoom center
+     * @returns {boolean} True if zoom succeeded
+     */
     zoom_in(e) {
         return this.set_zoom(this.zoom_current + this.opts.zoom.step, e);
     }
+    /**
+     * Zoom out the view.
+     * @param {MouseEvent=} e - Mouse event for zoom center
+     * @returns {boolean} True if zoom succeeded
+     */
     zoom_out(e) {
         return this.set_zoom(this.zoom_current - this.opts.zoom.step, e);
     }
+    /**
+     * Set zoom level and keep scroll around zoom center.
+     * @param {number} zoom
+     * @param {MouseEvent=} e
+     */
     set_zoom(zoom, e) {
         if (zoom < this.opts.zoom.min || zoom > this.opts.zoom.max) {
             return false;
@@ -407,6 +517,7 @@ export class ViewProvider {
         this.e_panel.scrollTop = panel_scroll_y;
         return true;
     }
+    /** @param {boolean=} keep_center */
     show(keep_center) {
         logger.debug(`view.show: {keep_center: ${keep_center}}`);
         this.expand_size();
@@ -419,6 +530,7 @@ export class ViewProvider {
         this.expand_size();
         this._show();
     }
+    /** @param {import('./jsmind.node.js').Node} node */
     save_location(node) {
         var vd = node._data.view;
         vd._saved_location = {
@@ -426,6 +538,7 @@ export class ViewProvider {
             y: parseInt(vd.element.style.top) - this.e_panel.scrollTop,
         };
     }
+    /** @param {import('./jsmind.node.js').Node} node */
     restore_location(node) {
         var vd = node._data.view;
         this.e_panel.scrollLeft = parseInt(vd.element.style.left) - vd._saved_location.x;
@@ -445,6 +558,7 @@ export class ViewProvider {
         }
         this.e_nodes.innerHTML = '';
     }
+    /** Render node elements and expanders to screen. */
     show_nodes() {
         var nodes = this.jm.mind.nodes;
         var node = null;
@@ -472,6 +586,7 @@ export class ViewProvider {
             this._show_expander(node, view_offset);
         }
     }
+    /** @param {import('./jsmind.node.js').Node} node @param {{x:number,y:number}} view_offset */
     _show_expander(node, view_offset) {
         if (node.isroot) {
             return;
@@ -494,6 +609,7 @@ export class ViewProvider {
         expander.style.visibility = 'visible';
     }
 
+    /** @param {import('./jsmind.node.js').Node} node */
     _get_expander_text(node) {
         let style = !!this.opts.expander_style ? this.opts.expander_style.toLowerCase() : 'char';
         if (style === 'number') {
@@ -504,6 +620,7 @@ export class ViewProvider {
         }
     }
 
+    /** @param {HTMLElement} ele @param {import('./jsmind.node.js').Node} node */
     _default_node_render(ele, node) {
         if (this.opts.support_html) {
             $.h(ele, node.topic);
@@ -511,15 +628,18 @@ export class ViewProvider {
             $.t(ele, node.topic);
         }
     }
+    /** @param {HTMLElement} ele @param {import('./jsmind.node.js').Node} node */
     _custom_node_render(ele, node) {
         let rendered = this.opts.custom_node_render(this.jm, ele, node);
         if (!rendered) {
             this._default_node_render(ele, node);
         }
     }
+    /** @param {import('./jsmind.node.js').Node} node */
     reset_node_custom_style(node) {
         this._reset_node_custom_style(node._data.view.element, node.data);
     }
+    /** @param {HTMLElement} node_element @param {Record<string,string|number>} node_data */
     _reset_node_custom_style(node_element, node_data) {
         if (Array.isArray(node_data['nodeClassList'])) {
             node_data['nodeClassList'].forEach(className => {
@@ -582,6 +702,7 @@ export class ViewProvider {
             }
         }
     }
+    /** @param {import('./jsmind.node.js').Node} node */
     restore_selected_node_custom_style(node) {
         var node_element = node._data.view.element;
         var node_data = node.data;
@@ -592,6 +713,7 @@ export class ViewProvider {
             node_element.style.color = node_data['foreground-color'];
         }
     }
+    /** @param {import('./jsmind.node.js').Node} node */
     clear_selected_node_custom_style(node) {
         var node_element = node._data.view.element;
         node_element.style.backgroundColor = '';
@@ -627,6 +749,10 @@ export class ViewProvider {
         }
     }
     // Drag the whole mind map with your mouse, when it's larger that the container
+    /**
+     * Enable/disable dragging the whole canvas with mouse.
+     * @param {boolean} enabled
+     */
     setup_canvas_draggable(enabled) {
         this.opts.draggable = enabled;
         if (!this._initialized) {
@@ -662,6 +788,7 @@ export class ViewProvider {
             });
         }
     }
+    /** @param {import('./jsmind.node.js').Node} node */
     center_node(node) {
         if (!this.layout.is_visible(node)) {
             logger.warn('can not scroll to the node, because it is invisible');
@@ -680,14 +807,17 @@ export class ViewProvider {
         return true;
     }
 
+    /** @param {MouseEvent=} e */
     zoomIn(e) {
         logger.warn('please use zoom_in instead');
         return this.zoom_in(e);
     }
+    /** @param {MouseEvent=} e */
     zoomOut(e) {
         logger.warn('please use zoom_out instead');
         return this.zoom_out(e);
     }
+    /** @param {number} zoom @param {MouseEvent=} e */
     setZoom(zoom, e) {
         logger.warn('please use set_zoom instead');
         return this.set_zoom(zoom, e);
